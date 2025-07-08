@@ -1,0 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* (Optional) If you want some fallback or extra base styles: */
+html, body {
+  height: 100%;
+  min-height: 100%;
+}

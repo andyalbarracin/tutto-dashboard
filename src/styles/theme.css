@@ -1,0 +1,29 @@
+:root {
+  /* LIGHT MODE */
+  --color-bg: #ebeaed;               /* Dirty White */
+  --color-shadow: #F0EDE5;           /* Sand Dune */
+  --color-accent: #004643;           /* Green Cypre */
+  --color-card-bg: #051F20;          /* Black noir */
+  --color-card-bg-alt: #8eb69b;      /* Leaf */
+  --color-accent-2: #2000B1;         /* Mar Argentum */
+  --color-text: #051F20;             /* Black noir */
+
+  /* DARK MODE */
+  --color-bg-dark: #151419;          /* Black Void */
+  --color-accent-dark: #F56E0F;      /* Liquid Lava */
+  --color-gray-dark: #262626;        /* Grey scale */
+  --color-light: #FBFBFB;            /* Snow */
+  --color-dusty-gray: #878787;       /* Dusty Gray */
+}
+
+/* Example usage */
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+.card {
+  background: var(--color-card-bg);
+  border-radius: 1.5rem;
+  box-shadow: 0 6px 24px 0 var(--color-shadow);
+  /* etc */
+}
