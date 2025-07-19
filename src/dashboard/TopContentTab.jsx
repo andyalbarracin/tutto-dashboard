@@ -1,39 +1,62 @@
 import React from "react";
 import BentoCard from "../components/BentoCard";
 
-export default function TopContentTab({ data, platform, dateRange, theme }) {
+export default function TopContentTab({
+  data,
+  platform,
+  dateRange,
+  theme,
+  showMini = false // <-- nuevo prop
+}) {
+  // Filter by platform
   const filtered = platform === "All" ? data : data.filter(r => r.platform === platform);
-  const sorted = filtered.slice().sort((a, b) => (b.engagements || 0) - (a.engagements || 0));
+
+  // Ordenar por engagement descendente y cortar si showMini
+  const sorted = [...filtered].sort((a, b) => (b.engagements || 0) - (a.engagements || 0));
+  const top = showMini ? sorted.slice(0, 3) : sorted;
 
   return (
-    <div className="flex flex-col gap-6">
-      <BentoCard theme={theme} className="overflow-x-auto">
-        <h2 className={`text-xl font-bold mb-4 ${theme === "dark" ? "text-[#8eb69b]" : "text-[#2000B1]"}`}>Top Content</h2>
-        <table className={`min-w-full table-auto text-center rounded-2xl overflow-hidden ${theme === "dark" ? "bg-[#232744]" : "bg-[#F0EDE5]"}`}>
-          <thead>
-            <tr className={theme === "dark" ? "bg-[#232744] text-white" : "bg-[#8eb69b] text-[#2000B1]"}>
-              <th className="px-3 py-2">Date</th>
-              <th className="px-3 py-2">Platform</th>
-              <th className="px-3 py-2">Title</th>
-              <th className="px-3 py-2">Engagements</th>
-              <th className="px-3 py-2">Views</th>
-              <th className="px-3 py-2">Clicks</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sorted.map((row, idx) => (
-              <tr key={idx} className={theme === "dark" ? "hover:bg-[#1c2135]" : "hover:bg-[#e4f5ee]"}>
-                <td className="px-3 py-2">{row.date}</td>
-                <td className="px-3 py-2">{row.platform}</td>
-                <td className="px-3 py-2">{row.title || row.content || "-"}</td>
-                <td className="px-3 py-2">{row.engagements}</td>
-                <td className="px-3 py-2">{row.views}</td>
-                <td className="px-3 py-2">{row.clicks}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </BentoCard>
-    </div>
+    <BentoCard theme={theme} className="w-full">
+      <h2 className="text-xl font-bold mb-4">Top Content</h2>
+      {top.length === 0 && (
+        <div className="text-gray-400 text-center py-6">No content data for this period.</div>
+      )}
+      <div className="space-y-4">
+        {top.map((row, idx) => (
+          <div
+            key={row.id || idx}
+            className="flex flex-col md:flex-row gap-3 md:gap-6 border-b border-gray-700 pb-2 last:border-b-0"
+          >
+            <div className="text-lg font-bold min-w-[30px] opacity-60">#{idx + 1}</div>
+            <div className="flex-1">
+              <div className="font-semibold text-base truncate">{row.title || row.content || "Untitled"}</div>
+              <div className="text-xs opacity-70">
+                {row.platform} | {row.date}
+              </div>
+            </div>
+            <div className="flex gap-5 items-center text-xs">
+              <div>
+                <span className="font-bold text-base">{row.engagements || 0}</span>
+                <span className="ml-1">Engagements</span>
+              </div>
+              <div>
+                <span className="font-bold text-base">{row.views || 0}</span>
+                <span className="ml-1">Views</span>
+              </div>
+              <div>
+                <span className="font-bold text-base">{row.clicks || 0}</span>
+                <span className="ml-1">Clicks</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      {/* Si showMini, mostrar link para ver todo */}
+      {showMini && top.length > 0 && (
+        <div className="pt-2 text-xs text-right">
+          <span className="text-blue-400 cursor-pointer hover:underline">View all &rarr;</span>
+        </div>
+      )}
+    </BentoCard>
   );
 }

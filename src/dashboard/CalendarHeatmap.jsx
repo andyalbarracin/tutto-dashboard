@@ -38,8 +38,10 @@ export default function CalendarHeatmap({
   industry = "Telecom",
   theme = "dark"
 }) {
+  // TODOS LOS HOOKS AQUÍ ARRIBA
   const [metric, setMetric] = useState("engagements");
   const [monthIdx, setMonthIdx] = useState(0);
+  const [tooltip, setTooltip] = useState(null);
 
   // Build platforms present
   const platformsPresent = Array.from(new Set(data.map(r => r.platform))).filter(p => !!p);
@@ -97,7 +99,6 @@ export default function CalendarHeatmap({
   });
 
   const benchmark = industryBenchmarks[industry]?.[metric] || 10;
-  const [tooltip, setTooltip] = useState(null);
   const daysOfWeek = ["M", "T", "W", "T", "F", "S", "S"];
 
   return (
@@ -126,7 +127,7 @@ export default function CalendarHeatmap({
       <div className="overflow-x-auto">
         <div className="grid grid-cols-7 gap-2">
           {daysOfWeek.map((d, i) => (
-            <div key={i} className="text-center font-semibold text-sm text-gray-400 mb-1">{d}</div>
+            <div key={`dow-${i}`} className="text-center font-semibold text-sm text-gray-400 mb-1">{d}</div>
           ))}
           {days.map((dateObj, idx) => {
             const dayStr = dateObj.format("YYYY-MM-DD");
@@ -142,7 +143,7 @@ export default function CalendarHeatmap({
 
             return (
               <div
-                key={idx}
+                key={`calcell-${idx}-${dayStr}`}
                 className={`rounded-xl h-14 flex flex-col justify-center items-center relative cursor-pointer ${cellColor} ${fade}`}
                 onMouseEnter={hasData ? (e =>
                   setTooltip({
@@ -182,7 +183,7 @@ export default function CalendarHeatmap({
         >
           <div><b>Date:</b> {tooltip.date}</div>
           {Object.keys(tooltip.vals).map(plat => (
-            <div key={plat}>
+            <div key={`plat-${plat}`}>
               <b>{plat}:</b> {tooltip.vals[plat] !== undefined ? tooltip.vals[plat] : 0}
             </div>
           ))}
