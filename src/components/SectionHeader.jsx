@@ -2,7 +2,7 @@ import { TrendingUp, MessageSquare, Award } from "lucide-react";
 
 export default function SectionHeader({ title, kpis = [], theme = "dark" }) {
   return (
-    <div className="w-full flex flex-col md:flex-row md:items-center md:justify-between gap-4 mt-4 mb-10">
+    <div className="w-full px-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4 mt-4 mb-10">
       {/* Título de la sección */}
       <h1 className="text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
         {title}
@@ -23,8 +23,8 @@ export default function SectionHeader({ title, kpis = [], theme = "dark" }) {
             <div className={`rounded-full p-2 flex items-center justify-center
               ${theme === "dark"
                 ? "bg-[#171B2C] text-[#8eb69b]"
-                : "bg-[#ebeaed] text-[#2000B1]"}
-            `}>
+                : "bg-[#ebeaed] text-[#2000B1]"}`}
+            >
               {kpi.icon}
             </div>
             <div>

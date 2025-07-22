@@ -7,3 +7,6 @@ html, body {
   height: 100%;
   min-height: 100%;
 }
+.btn, .dropzone {
+  border-radius: 0.75rem; /* igual que rounded-xl de Tailwind */
+}

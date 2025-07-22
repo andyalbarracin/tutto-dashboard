@@ -1,4 +1,4 @@
-// components/Header.jsx
+// src/components/Header.jsx
 import React from "react";
 import userAvatar from "../img/user-avatar.png";
 

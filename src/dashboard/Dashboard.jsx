@@ -1,13 +1,15 @@
+// src/dashboard/Dashboard.jsx
+
 import React, { useState, useEffect, useCallback } from "react";
 import Header from "../components/Header.jsx";
 import SectionHeader from "../components/SectionHeader.jsx";
 import Toolbar from "../components/Toolbar.jsx";
 import BlankState from "../components/BlankState.jsx";
-import ConfirmModal from "../components/ConfirmModal.jsx";
 import EngagementTab from "./EngagementTab.jsx";
 import TopContentTab from "./TopContentTab.jsx";
-import CalendarHeatmap from "./CalendarHeatmap.jsx";
-import GrowthTab from "./GrowthTab.jsx";
+import AISummary from "../ai/AISummary.jsx";
+import ConfirmModal from "../components/ConfirmModal.jsx";
+import PostDrilldown from "../components/PostDrilldown.jsx";
 import dayjs from "dayjs";
 
 // Tabs config
@@ -17,22 +19,32 @@ const TABS = [
   { label: "Web", key: "web" },
 ];
 
-export default function Dashboard() {
+export default function Dashboard({ project }) {
+  // UI & state config
   const [tab, setTab] = useState(TABS[0].key);
   const [sessionData, setSessionData] = useState([]);
   const [platform, setPlatform] = useState("All");
   const [dateRange, setDateRange] = useState("1 month");
+  const [industry, setIndustry] = useState("Telecom");
   const [theme, setTheme] = useState("dark");
   const [showRefreshConfirm, setShowRefreshConfirm] = useState(false);
+
+  // Upload/feedback
   const [uploadKey, setUploadKey] = useState(Date.now());
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [fileList, setFileList] = useState([]);
   const [hover, setHover] = useState(false);
   const [isDragActive, setIsDragActive] = useState(false);
+
+  // Filtering
   const [filteredData, setFilteredData] = useState([]);
 
-  // Filtrado por plataforma y rango de fechas
+  // Drilldown (slide-over panel)
+  const [drilldownOpen, setDrilldownOpen] = useState(false);
+  const [drilldownData, setDrilldownData] = useState(null);
+
+  // --- Filter sessionData by platform & date ---
   useEffect(() => {
     let data = sessionData;
     if (platform && platform !== "All") {
@@ -63,18 +75,20 @@ export default function Dashboard() {
     setFilteredData(data);
   }, [sessionData, platform, dateRange]);
 
-  // Manejador para resetear todo
+  // --- Refresh/Reset logic ---
   function handleRefresh() {
     setShowRefreshConfirm(false);
     setSessionData([]);
     setUploadKey(Date.now());
     setPlatform("All");
     setDateRange("1 month");
+    setIndustry("Telecom");
     setFileList([]);
     setSuccessMsg("");
     setErrorMsg("");
   }
 
+  // --- Theme toggle on root html ---
   useEffect(() => {
     if (theme === "dark") {
       document.documentElement.classList.add("dark");
@@ -83,7 +97,7 @@ export default function Dashboard() {
     }
   }, [theme]);
 
-  // Manejador de uploads
+  // --- Handle uploads (from any zone: drag, mini, upload btn) ---
   function handleUpload(rows, filename = null) {
     setSessionData(prev => {
       const map = {};
@@ -107,14 +121,13 @@ export default function Dashboard() {
     }
   }
 
-  // Drag-and-drop handlers
+  // --- Drag & drop file handlers ---
   const handleDrop = useCallback(
     (e) => {
       e.preventDefault();
       setIsDragActive(false);
       const file = e.dataTransfer.files[0];
       if (!file) return;
-
       const filename = file.name;
       const reader = new FileReader();
       if (file.name.endsWith(".csv")) {
@@ -169,119 +182,145 @@ export default function Dashboard() {
   const handleDragOver = (e) => { e.preventDefault(); setIsDragActive(true); };
   const handleDragLeave = (e) => { e.preventDefault(); setIsDragActive(false); };
 
-  // ------- KPIs fake para demo -------
-  const kpiDemo = [
-    { icon: "trending-up", value: "52,300", label: "Total Engagements" },
-    { icon: "message-square", value: "623", label: "Avg Engagement / Day" },
-    { icon: "award", value: "LinkedIn", label: "Top Platform" },
+  // --- Drilldown open from any card (top, calendar, kpi, etc) ---
+  function handleDrilldownOpen(row) {
+    setDrilldownData(row);
+    setDrilldownOpen(true);
+  }
+  function handleDrilldownClose() {
+    setDrilldownOpen(false);
+    setDrilldownData(null);
+  }
+
+  // --- Main KPIs (placeholder, puedes customizar según tus datos) ---
+  const overviewKPIs = [
+    // Ejemplo: { icon: <TrendingUp size={28} />, value: 52300, label: "Total Engagements" },
   ];
 
+  // --- RENDER ---
   return (
     <div className={`min-h-screen flex flex-col transition-colors ${theme === "dark" ? "bg-[#151419] text-white" : "bg-[#ebeaed] text-gray-900"}`}>
+      {/* Topbar/header */}
       <Header tab={tab} setTab={setTab} theme={theme} setTheme={setTheme} />
-      {/* SectionHeader: titulo + kpis */}
-      <div className="mt-4">
-        <SectionHeader
-          title={TABS.find(t => t.key === tab)?.label || ""}
-          kpis={kpiDemo}
-          theme={theme}
-        />
-      </div>
-      {/* Toolbar: controles y filtros */}
-      <Toolbar
-        platform={platform}
-        setPlatform={setPlatform}
-        dateRange={dateRange}
-        setDateRange={setDateRange}
-        successMsg={successMsg}
-        errorMsg={errorMsg}
-        fileList={fileList}
-        setHover={setHover}
-        hover={hover}
-        uploadKey={uploadKey}
-        handleUpload={handleUpload}
-        setSuccessMsg={setSuccessMsg}
-        setErrorMsg={setErrorMsg}
-        setFileList={setFileList}
-        sessionData={sessionData}
-        theme={theme}
-        onRefresh={() => setShowRefreshConfirm(true)}
-      />
-      {/* Main content */}
       <main className="flex-1 px-7 py-8 transition-colors duration-300">
-        {/* OVERVIEW: blank state */}
-        {tab === "overview" && (!sessionData || sessionData.length === 0) && (
-          <BlankState
-            isDragActive={isDragActive}
-            handleDrop={handleDrop}
-            handleDragOver={handleDragOver}
-            handleDragLeave={handleDragLeave}
-            uploadKey={uploadKey}
-            UploadButton={Toolbar.UploadButton}
-            handleUpload={handleUpload}
-            setSuccessMsg={setSuccessMsg}
-            setErrorMsg={setErrorMsg}
-            setFileList={setFileList}
-          />
+        {/* Tab content */}
+        {tab === "overview" && (
+          <>
+            <SectionHeader title="Overview" kpis={overviewKPIs} theme={theme} />
+            <Toolbar
+              theme={theme}
+              dateRange={dateRange}
+              setDateRange={setDateRange}
+              platform={platform}
+              setPlatform={setPlatform}
+              uploadKey={uploadKey}
+              handleUpload={handleUpload}
+              setSuccessMsg={setSuccessMsg}
+              setErrorMsg={setErrorMsg}
+              setFileList={setFileList}
+              fileList={fileList}
+              successMsg={successMsg}
+              errorMsg={errorMsg}
+              handleDrop={handleDrop}
+              handleDragOver={handleDragOver}
+              handleDragLeave={handleDragLeave}
+              isDragActive={isDragActive}
+            />
+            {/* Description of sources/filters could go here */}
+            {(!sessionData || sessionData.length === 0) ? (
+              <BlankState
+                isDragActive={isDragActive}
+                handleDrop={handleDrop}
+                handleDragOver={handleDragOver}
+                handleDragLeave={handleDragLeave}
+                uploadKey={uploadKey}
+                UploadButton={Toolbar.UploadButton}
+                handleUpload={handleUpload}
+                setSuccessMsg={setSuccessMsg}
+                setErrorMsg={setErrorMsg}
+                setFileList={setFileList}
+              />
+            ) : (
+              <>
+                {/* Main dashboard: EngagementTab, TopContentTab */}
+                <EngagementTab
+                  data={filteredData}
+                  platform={platform}
+                  dateRange={dateRange}
+                  theme={theme}
+                  onPostClick={handleDrilldownOpen}
+                  onCalendarClick={handleDrilldownOpen}
+                  onKpiClick={handleDrilldownOpen}
+                />
+                <TopContentTab
+                  data={filteredData}
+                  platform={platform}
+                  theme={theme}
+                  onRowClick={handleDrilldownOpen}
+                />
+              </>
+            )}
+          </>
         )}
-
-        {/* OVERVIEW: cards y charts principales */}
-        {tab === "overview" && sessionData && sessionData.length > 0 && (
-          <div className="flex flex-col gap-8">
-            {/* Engagement Overview (sin breakdown extra) */}
-            <EngagementTab
-              data={filteredData}
-              platform={platform}
-              dateRange={dateRange}
-              theme={theme}
-              showOnlyOverview={true}
-            />
-            {/* Calendar */}
-            <CalendarHeatmap
-              data={filteredData}
-              platform={platform}
-              dateRange={dateRange}
-              theme={theme}
-              industry="Telecom"
-            />
-            {/* Top Content (mini) */}
-            <TopContentTab
-              data={filteredData}
-              platform={platform}
-              dateRange={dateRange}
-              theme={theme}
-              showMini={true}
-            />
-          </div>
-        )}
-
-        {/* SOCIAL: sección completa de crecimiento y top content */}
         {tab === "social" && (
-          <div className="flex flex-col gap-8">
-            <EngagementTab
-              data={filteredData}
-              platform={platform}
-              dateRange={dateRange}
+          <>
+            <SectionHeader title="Social" kpis={[]} theme={theme} />
+            <Toolbar
               theme={theme}
-              showOnlyOverview={false}
-            />
-            <GrowthTab
-              data={filteredData}
-              platform={platform}
               dateRange={dateRange}
-              theme={theme}
-            />
-            <TopContentTab
-              data={filteredData}
+              setDateRange={setDateRange}
               platform={platform}
-              dateRange={dateRange}
-              theme={theme}
-              showMini={false}
+              setPlatform={setPlatform}
+              uploadKey={uploadKey}
+              handleUpload={handleUpload}
+              setSuccessMsg={setSuccessMsg}
+              setErrorMsg={setErrorMsg}
+              setFileList={setFileList}
+              fileList={fileList}
+              successMsg={successMsg}
+              errorMsg={errorMsg}
+              handleDrop={handleDrop}
+              handleDragOver={handleDragOver}
+              handleDragLeave={handleDragLeave}
+              isDragActive={isDragActive}
             />
-          </div>
+            {(!sessionData || sessionData.length === 0) ? (
+              <BlankState
+                isDragActive={isDragActive}
+                handleDrop={handleDrop}
+                handleDragOver={handleDragOver}
+                handleDragLeave={handleDragLeave}
+                uploadKey={uploadKey}
+                UploadButton={Toolbar.UploadButton}
+                handleUpload={handleUpload}
+                setSuccessMsg={setSuccessMsg}
+                setErrorMsg={setErrorMsg}
+                setFileList={setFileList}
+              />
+            ) : (
+              <>
+                <EngagementTab
+                  data={filteredData}
+                  platform={platform}
+                  dateRange={dateRange}
+                  theme={theme}
+                  onPostClick={handleDrilldownOpen}
+                  onCalendarClick={handleDrilldownOpen}
+                  onKpiClick={handleDrilldownOpen}
+                />
+                <div className="mt-6">
+                  <AISummary theme={theme} data={filteredData} />
+                </div>
+                <TopContentTab
+                  data={filteredData}
+                  platform={platform}
+                  theme={theme}
+                  onRowClick={handleDrilldownOpen}
+                />
+              </>
+            )}
+          </>
         )}
-
-        {/* WEB: coming soon */}
         {tab === "web" && (
           <div className="text-center text-lg py-20 text-gray-400">
             Web Analytics section coming soon...
@@ -289,18 +328,26 @@ export default function Dashboard() {
         )}
       </main>
 
-      {/* ConfirmModal */}
+      {/* Confirm modal */}
       <ConfirmModal
         open={showRefreshConfirm}
         onConfirm={handleRefresh}
         onCancel={() => setShowRefreshConfirm(false)}
         theme={theme}
       />
+
+      {/* --- GLOBAL DRILLDOWN/SLIDE-OVER --- */}
+      <PostDrilldown
+        open={drilldownOpen}
+        post={drilldownData}
+        onClose={handleDrilldownClose}
+        theme={theme}
+      />
     </div>
   );
 }
 
-// Helpers for normalization (ponelos al final del archivo o modulariza luego)
+// Helpers for normalization (puedes mantenerlos igual)
 function detectReportType(row) {
   const keys = Object.keys(row).map(k => k.trim());
   if (keys.some(k => k === "Impressions (total)" || k === "Clicks (total)")) return "LinkedIn Content";

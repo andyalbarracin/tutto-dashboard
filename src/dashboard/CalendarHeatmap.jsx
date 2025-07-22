@@ -3,6 +3,7 @@ import dayjs from "dayjs";
 import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
 dayjs.extend(isSameOrBefore);
 
+// Benchmarks por industria/métrica
 const industryBenchmarks = {
   Telecom: { engagements: 20, views: 300, clicks: 7 },
   SaaS: { engagements: 40, views: 700, clicks: 12 },
@@ -11,13 +12,31 @@ const industryBenchmarks = {
   Finance: { engagements: 16, views: 500, clicks: 3 },
 };
 
-function getColor(vals, benchmark, hasData) {
-  if (!hasData) return "bg-gray-300 dark:bg-gray-700"; // No data
+// Devuelve la frase motivacional/contextual para el tooltip y el slide
+function getMessage({ vals, benchmark, metric }) {
+  if (!vals || Object.keys(vals).length === 0)
+    return "You didn’t post anything on this day.";
+  const value = Object.values(vals).reduce((a, b) => a + b, 0);
+  if (value === 0)
+    return "You posted, but got no " + metric + " — try posting at a different time or using a new format!";
+  if (value > benchmark)
+    return `Your post performed well and beat the industry benchmark for ${metric}! 🚀`;
+  if (value > 0 && value < benchmark)
+    return "Decent, but you didn't reach the industry benchmark. Try a new CTA or format.";
+  if (value === benchmark)
+    return `Matched the industry benchmark for ${metric}! Solid performance.`;
+  return "";
+}
+
+// Color de la celda según los valores y benchmark
+function getColor(vals, benchmark, hasData, theme) {
+  if (!hasData) return theme === "dark" ? "bg-gray-700" : "bg-gray-300";
   if (Object.values(vals).some(v => v <= 0)) return "bg-red-800";
   if (Object.values(vals).every(v => v > benchmark)) return "bg-green-700";
   return "bg-blue-700";
 }
 
+// Construye la grilla de días para un mes (incluyendo los días vacíos de inicio/fin)
 function getMonthGrid(monthDate) {
   const start = monthDate.startOf("month");
   const end = monthDate.endOf("month");
@@ -31,21 +50,25 @@ function getMonthGrid(monthDate) {
   return days;
 }
 
+/**
+ * CalendarHeatmap.jsx
+ * - Muestra la actividad diaria en modo heatmap, agrupada por mes y por plataforma, con colores según benchmark.
+ * - Al hacer click en una celda, dispara onDayClick con todos los datos (para el slide).
+ * - Solo muestra frase motivacional en el tooltip y el slide.
+ */
 export default function CalendarHeatmap({
   data = [],
   platform = "All",
   dateRange = "1 month",
   industry = "Telecom",
-  theme = "dark"
+  theme = "dark",
+  onDayClick, // para abrir slide
 }) {
-  // TODOS LOS HOOKS AQUÍ ARRIBA
   const [metric, setMetric] = useState("engagements");
   const [monthIdx, setMonthIdx] = useState(0);
   const [tooltip, setTooltip] = useState(null);
 
-  // Build platforms present
-  const platformsPresent = Array.from(new Set(data.map(r => r.platform))).filter(p => !!p);
-
+  // Filtro por fecha (sin plataforma: toda la data)
   function filterData(data, dateRange) {
     let d = data;
     if (dateRange && d.length) {
@@ -74,7 +97,7 @@ export default function CalendarHeatmap({
   if (!filtered.length)
     return <div className="text-gray-400">No data loaded yet.</div>;
 
-  // Get all months with data (for navigation)
+  // Meses disponibles
   const allDates = filtered.map(r => dayjs(r.date)).filter(dt => dt.isValid());
   if (!allDates.length)
     return <div className="text-gray-400">No valid dates for calendar.</div>;
@@ -89,8 +112,8 @@ export default function CalendarHeatmap({
   const currentMonth = months[monthIdx] || months[0];
   const days = getMonthGrid(currentMonth);
 
-  // Aggregate values by date/platform
-  const values = {}; // { "2024-07-02": { LinkedIn: 12, X: 5 } }
+  // Agrupa valores por fecha y plataforma
+  const values = {};
   filtered.forEach(r => {
     if (!r.date) return;
     const day = dayjs(r.date).format("YYYY-MM-DD");
@@ -127,30 +150,42 @@ export default function CalendarHeatmap({
       <div className="overflow-x-auto">
         <div className="grid grid-cols-7 gap-2">
           {daysOfWeek.map((d, i) => (
-            <div key={`dow-${i}`} className="text-center font-semibold text-sm text-gray-400 mb-1">{d}</div>
+            <div key={i} className="text-center font-semibold text-sm text-gray-400 mb-1">{d}</div>
           ))}
           {days.map((dateObj, idx) => {
             const dayStr = dateObj.format("YYYY-MM-DD");
             const vals = values[dayStr] || {};
             const fade = dateObj.month() !== currentMonth.month() ? "opacity-40" : "";
             const hasData = Object.keys(vals).length > 0;
-            const cellColor = getColor(vals, benchmark, hasData);
+            const cellColor = getColor(vals, benchmark, hasData, theme);
+            const value = Object.values(vals).reduce((a, b) => a + b, 0);
 
-            // Build display string (eg. "5 / 12" for X/LinkedIn)
+            // Frase para el tooltip y el slide
+            const message = getMessage({ vals, benchmark, metric });
+
+            // String de valores por plataforma
             const numStr = hasData
               ? Object.keys(vals).map(plat => vals[plat] !== undefined ? vals[plat] : "-").join(" / ")
               : "";
 
             return (
               <div
-                key={`calcell-${idx}-${dayStr}`}
+                key={idx}
                 className={`rounded-xl h-14 flex flex-col justify-center items-center relative cursor-pointer ${cellColor} ${fade}`}
+                onClick={() => hasData && onDayClick && onDayClick({
+                  date: dayStr, value, vals, metric, benchmark, message
+                })}
                 onMouseEnter={hasData ? (e =>
                   setTooltip({
                     x: e.target.getBoundingClientRect().left + window.scrollX,
                     y: e.target.getBoundingClientRect().top + window.scrollY,
                     date: dayStr,
+                    value,
                     vals,
+                    metric,
+                    benchmark,
+                    message,
+                    platforms: Object.keys(vals)
                   })
                 ) : undefined}
                 onMouseLeave={() => setTooltip(null)}
@@ -171,7 +206,7 @@ export default function CalendarHeatmap({
           })}
         </div>
       </div>
-      {/* Tooltip */}
+      {/* Tooltip motivacional */}
       {tooltip && (
         <div
           className="fixed z-50 bg-[#232744] text-white text-xs p-3 rounded shadow"
@@ -182,12 +217,13 @@ export default function CalendarHeatmap({
           }}
         >
           <div><b>Date:</b> {tooltip.date}</div>
-          {Object.keys(tooltip.vals).map(plat => (
-            <div key={`plat-${plat}`}>
-              <b>{plat}:</b> {tooltip.vals[plat] !== undefined ? tooltip.vals[plat] : 0}
-            </div>
-          ))}
-          <div><b>Benchmark:</b> {benchmark}</div>
+          <div>
+            <b>Value(s):</b>{" "}
+            {tooltip.vals ? Object.values(tooltip.vals).join(" / ") : "-"}
+          </div>
+          <div><b>Benchmark:</b> {tooltip.benchmark}</div>
+          <div><b>Platforms:</b> {tooltip.platforms && tooltip.platforms.length ? tooltip.platforms.join(" / ") : "-"}</div>
+          <div className="mt-1">{tooltip.message}</div>
         </div>
       )}
       <div className="mt-4 text-xs text-gray-400">

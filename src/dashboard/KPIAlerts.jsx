@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import dayjs from "dayjs";
 
-// Benchmarks by industry/metric
+// Benchmarks por industria/métrica
 const industryBenchmarks = {
   Telecom: { engagements: 20, views: 300, clicks: 7 },
   SaaS: { engagements: 40, views: 700, clicks: 12 },
@@ -10,7 +10,7 @@ const industryBenchmarks = {
   Finance: { engagements: 16, views: 500, clicks: 3 },
 };
 
-// Humanized context messages
+// Devuelve la frase motivadora/contextual para el tooltip y el slide
 function getMessage({ value, benchmark, posts, metric }) {
   if (!posts || posts.length === 0)
     return "You didn’t post anything on this day.";
@@ -20,7 +20,7 @@ function getMessage({ value, benchmark, posts, metric }) {
     return `You posted ${posts.length} updates, but had zero ${metric}. Try engaging your audience differently.`;
   if (value > benchmark)
     return `Your post${posts.length > 1 ? "s" : ""} performed well and beat the industry benchmark for ${metric}! 🚀`;
-  if (value > 0 && value <= benchmark)
+  if (value > 0 && value < benchmark)
     return `You posted ${posts.length} time${posts.length > 1 ? "s" : ""}. Decent, but you didn't reach the industry benchmark. Try a new CTA or format.`;
   if (value === benchmark)
     return `Matched the industry benchmark for ${metric}! Solid performance.`;
@@ -29,28 +29,36 @@ function getMessage({ value, benchmark, posts, metric }) {
   return "No data available.";
 }
 
-// Card color logic
+// Color de card según valor/benchmark
 function getColor(val, benchmark, theme) {
   if (val <= 0) return theme === "dark" ? "bg-red-800 text-white" : "bg-red-200 text-[#151419]";
   if (val > benchmark) return theme === "dark" ? "bg-green-700 text-white" : "bg-[#8eb69b] text-[#151419]";
   return theme === "dark" ? "bg-blue-700 text-white" : "bg-[#d0e6df] text-[#151419]";
 }
 
-// Get date list in date order (descending)
+// Ordena fechas descendente
 function getDateList(daysObj) {
   return Object.keys(daysObj).sort((a, b) => dayjs(b).unix() - dayjs(a).unix());
 }
 
+/**
+ * KPIAlerts.jsx
+ * - Muestra las 3 mejores y 3 peores fechas por plataforma y métrica, con benchmark.
+ * - NO muestra frases motivacionales en el card, solo en el tooltip/slide.
+ * - Al clickear una tarjeta de fecha, dispara onDayClick con los datos completos.
+ */
 export default function KPIAlerts({
   data,
   platform = "All",
   dateRange = "1 month",
   industry = "Telecom",
-  theme = "dark"
+  theme = "dark",
+  onDayClick // para slide-over
 }) {
   const [metric, setMetric] = useState("engagements");
+  const [tooltip, setTooltip] = useState(null);
 
-  // Filter by date & (optionally) platform
+  // Filtro por plataforma y fecha
   function filterData(data, platform, dateRange) {
     let d = data;
     if (platform && platform !== "All") d = d.filter(r => r.platform === platform);
@@ -76,20 +84,16 @@ export default function KPIAlerts({
     return d;
   }
 
-  // For "All" platform, keep all rows (filtered by date)
   const filteredData = filterData(data, platform === "All" ? null : platform, dateRange);
-
   if (!filteredData.length)
     return <div className="text-gray-400">No data loaded yet.</div>;
 
-  // Get list of platforms present
   const platforms = platform === "All"
     ? [...new Set(filteredData.map(r => r.platform))]
     : [platform];
 
-  // Build cards for each platform
+  // Cards por plataforma
   const cards = platforms.map(plat => {
-    // Find all days (date: [posts])
     const daysObj = {};
     filteredData
       .filter(r => r.platform === plat)
@@ -100,14 +104,13 @@ export default function KPIAlerts({
       });
     const dateList = getDateList(daysObj);
 
-    // For each date, total metric value & count posts
     const dayVals = dateList.map(date => {
       const posts = daysObj[date];
       const value = posts.reduce((sum, r) => sum + (Number(r[metric]) || 0), 0);
-      return { date, value, posts };
+      return { date, value, posts, metric, platform: plat };
     });
 
-    // Top 3 best and worst days
+    // Top 3 best y worst days
     const sortedBest = [...dayVals].sort((a, b) => b.value - a.value).slice(0, 3);
     const sortedWorst = [...dayVals].sort((a, b) => a.value - b.value).slice(0, 3);
 
@@ -125,42 +128,56 @@ export default function KPIAlerts({
         <div className={`mb-2 font-semibold ${theme === "dark" ? "text-green-300" : "text-[#004643]"}`}>Top 3 Best Days</div>
         <div className="flex flex-col gap-1 mb-4">
           {sortedBest.map((x, i) => (
-            <div key={i}
-              className={`relative group rounded-xl px-3 py-2 font-semibold shadow ${getColor(x.value, benchmark, theme)} flex flex-col`}>
+            <div
+              key={i}
+              className={`relative group rounded-xl px-3 py-2 font-semibold shadow ${getColor(x.value, benchmark, theme)} flex flex-col cursor-pointer`}
+              onClick={() => onDayClick && onDayClick({
+                ...x,
+                benchmark,
+                message: getMessage({ value: x.value, benchmark, posts: x.posts, metric })
+              })}
+              tabIndex={0}
+              onMouseEnter={e => setTooltip({
+                x: e.target.getBoundingClientRect().left + window.scrollX,
+                y: e.target.getBoundingClientRect().top + window.scrollY,
+                ...x,
+                benchmark,
+                message: getMessage({ value: x.value, benchmark, posts: x.posts, metric })
+              })}
+              onMouseLeave={() => setTooltip(null)}
+            >
               <div className="flex justify-between items-center">
                 <span>{x.date}</span>
                 <span className="font-bold">{x.value}</span>
               </div>
-              <div className={`absolute bottom-10 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition pointer-events-none
-                rounded shadow z-10 px-4 py-3
-                ${theme === "dark" ? "bg-[#232744] text-white" : "bg-white text-[#151419]"}`}>
-                <div><b>Date:</b> {x.date}</div>
-                <div><b>Value:</b> {x.value}</div>
-                <div><b>Benchmark:</b> {benchmark}</div>
-                <div><b>Posts:</b> {x.posts.length}</div>
-              </div>
-              <div className="text-xs mt-2 text-gray-200 text-center w-full">{getMessage({ value: x.value, benchmark, posts: x.posts, metric })}</div>
             </div>
           ))}
         </div>
         <div className={`mb-2 font-semibold ${theme === "dark" ? "text-red-300" : "text-[#F56E0F]"}`}>Top 3 Worst Days</div>
         <div className="flex flex-col gap-1">
           {sortedWorst.map((x, i) => (
-            <div key={i}
-              className={`relative group rounded-xl px-3 py-2 font-semibold shadow ${getColor(x.value, benchmark, theme)} flex flex-col`}>
+            <div
+              key={i}
+              className={`relative group rounded-xl px-3 py-2 font-semibold shadow ${getColor(x.value, benchmark, theme)} flex flex-col cursor-pointer`}
+              onClick={() => onDayClick && onDayClick({
+                ...x,
+                benchmark,
+                message: getMessage({ value: x.value, benchmark, posts: x.posts, metric })
+              })}
+              tabIndex={0}
+              onMouseEnter={e => setTooltip({
+                x: e.target.getBoundingClientRect().left + window.scrollX,
+                y: e.target.getBoundingClientRect().top + window.scrollY,
+                ...x,
+                benchmark,
+                message: getMessage({ value: x.value, benchmark, posts: x.posts, metric })
+              })}
+              onMouseLeave={() => setTooltip(null)}
+            >
               <div className="flex justify-between items-center">
                 <span>{x.date}</span>
                 <span className="font-bold">{x.value}</span>
               </div>
-              <div className={`absolute bottom-10 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition pointer-events-none
-                rounded shadow z-10 px-4 py-3
-                ${theme === "dark" ? "bg-[#232744] text-white" : "bg-white text-[#151419]"}`}>
-                <div><b>Date:</b> {x.date}</div>
-                <div><b>Value:</b> {x.value}</div>
-                <div><b>Benchmark:</b> {benchmark}</div>
-                <div><b>Posts:</b> {x.posts.length}</div>
-              </div>
-              <div className="text-xs mt-2 text-gray-200 text-center w-full">{getMessage({ value: x.value, benchmark, posts: x.posts, metric })}</div>
             </div>
           ))}
         </div>
@@ -168,7 +185,6 @@ export default function KPIAlerts({
     );
   });
 
-  // UI: metric filter at top (without "visitors")
   return (
     <div>
       <h2 className="text-xl font-bold mb-5">KPI Alerts</h2>
@@ -184,6 +200,24 @@ export default function KPIAlerts({
       </div>
       <div className="flex flex-wrap gap-7">{cards}</div>
       <div className={`mt-6 text-xs ${theme === "dark" ? "text-gray-400" : "text-[#004643]"}`}>Tip: Upload more data for accurate KPIs!</div>
+
+      {/* Tooltip motivacional */}
+      {tooltip && (
+        <div
+          className="fixed z-50 bg-[#232744] text-white text-xs p-3 rounded shadow"
+          style={{
+            left: tooltip.x + 35,
+            top: tooltip.y - 10,
+            pointerEvents: "none"
+          }}
+        >
+          <div><b>Date:</b> {tooltip.date}</div>
+          <div><b>Value:</b> {tooltip.value}</div>
+          <div><b>Benchmark:</b> {tooltip.benchmark}</div>
+          <div><b>Posts:</b> {tooltip.posts.length}</div>
+          <div className="mt-1">{tooltip.message}</div>
+        </div>
+      )}
     </div>
   );
 }
